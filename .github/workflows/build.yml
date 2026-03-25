@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build & Release (Python)
 
 on:
   push:
@@ -20,44 +20,48 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            rid: linux-x64
+            py: "3.11"
+            suffix: linux
           - os: macos-latest
-            rid: osx-x64
+            py: "3.11"
+            suffix: mac
           - os: windows-latest
-            rid: win-x64
+            py: "3.11"
+            suffix: win
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          dotnet-version: 8.0.x
+          python-version: ${{ matrix.py }}
 
-      - name: Restore
-        run: dotnet restore
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller
 
-      - name: Publish
-        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true -o publish/${{ matrix.rid }}
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --name json_Gatchanko_Tool main.py
 
       - name: Zip artifact
         run: |
-          cd publish
-          zip -r ../${{ matrix.rid }}.zip ${{ matrix.rid }}
+          zip -r json_Gatchanko_Tool-${{ matrix.suffix }}.zip dist/
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.rid }}
-          path: ${{ matrix.rid }}.zip
+          name: ${{ matrix.suffix }}
+          path: json_Gatchanko_Tool-${{ matrix.suffix }}.zip
 
   release-existing-tag:
     name: Release Existing Tag (v1.1.0)
     needs: build
     runs-on: ubuntu-latest
 
-    # YAML push で実行したい → コミットメッセージに [release] を入れる
     if: contains(github.event.head_commit.message, '[release]') || github.event_name == 'workflow_dispatch'
 
     permissions:
@@ -71,14 +75,12 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Rename artifacts to json_Gatchanko_Tool
+      - name: Rename artifacts
         run: |
           mkdir renamed
-          # artifacts 以下の ZIP を全部拾う
           for f in $(find artifacts -name "*.zip"); do
             base=$(basename "$f")
-            osname="${base%.*}"   # win-x64 / linux-x64 / osx-x64
-            cp "$f" "renamed/json_Gatchanko_Tool-${osname}.zip"
+            cp "$f" "renamed/$base"
           done
 
       - name: Create Release for existing tag
