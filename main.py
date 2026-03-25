@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox, scrolledtext
 class JsonMergerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("JSON配列マージツール（本気版）")
+        self.root.title("JSON配列マージツール")
         self.root.geometry("600x450")
 
         self.label = tk.Label(root, text="フォルダ内のJSONを1つの配列にまとめます", pady=10)
