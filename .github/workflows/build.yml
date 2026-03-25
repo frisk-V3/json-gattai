@@ -48,7 +48,11 @@ jobs:
 
       - name: Zip artifact
         run: |
-          zip -r json_Gatchanko_Tool-${{ matrix.suffix }}.zip dist/
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            powershell Compress-Archive -Path dist\* -DestinationPath json_Gatchanko_Tool-${{ matrix.suffix }}.zip
+          else
+            zip -r json_Gatchanko_Tool-${{ matrix.suffix }}.zip dist/
+          fi
         shell: bash
 
       - name: Upload artifact
@@ -62,6 +66,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
+    # YAML push で実行（コミットメッセージに [release] を入れる）
     if: contains(github.event.head_commit.message, '[release]') || github.event_name == 'workflow_dispatch'
 
     permissions:
