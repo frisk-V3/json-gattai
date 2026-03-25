@@ -1,34 +1,39 @@
-name: Build EXE
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    paths:
+      - ".github/workflows/**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
-    runs-on: windows-latest
+  release:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Download artifacts from previous build
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.11' # バージョンを固定しておくと安定します
+          path: ./artifacts
 
-      - name: Install dependencies
+      - name: Rename artifacts to json_Gatchanko_Tool
         run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
+          mkdir renamed
+          for f in artifacts/*/*.zip; do
+            base=$(basename "$f")
+            osname="${base%.*}"   # win-x64 / linux-x64 / osx-x64 など
+            cp "$f" "renamed/json_Gatchanko_Tool-${osname}.zip"
+          done
 
-      - name: Build EXE with PyInstaller
-        # GUIアプリとして最適化
-        run: pyinstaller --onefile --noconsole --name "JSON_Gatchanko_Tool" main.py
-
-      - name: Upload EXE Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Release for existing tag
+        uses: softprops/action-gh-release@v2
         with:
-          name: Windows_EXE_Tool
-          path: dist/JSON_Gatchanko_Tool.exe
+          tag_name: v1.1.0
+          files: renamed/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
