@@ -1,21 +1,3 @@
-name: Build & Release (Python)
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "**"
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         include:
@@ -44,54 +26,25 @@ jobs:
 
       - name: Build executable
         run: |
+          # Linux/Macでは拡張子なし、Windowsは .exe が自動で付く
           pyinstaller --onefile --name json_Gatchanko_Tool main.py
 
       - name: Zip artifact
-        run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path dist\* -DestinationPath json_Gatchanko_Tool-${{ matrix.suffix }}.zip
-          else
-            zip -r json_Gatchanko_Tool-${{ matrix.suffix }}.zip dist/
-          fi
         shell: bash
+        run: |
+          # distの中身を固める
+          # -j オプションを入れると、zipの中に余計なフォルダ階層を作らずファイルを直下に入れます
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # Windows(Git Bash環境)での圧縮
+            7z a "json_Gatchanko_Tool-${{ matrix.suffix }}.zip" ./dist/*
+          else
+            # Linux/Macでの圧縮
+            cd dist
+            zip -r "../json_Gatchanko_Tool-${{ matrix.suffix }}.zip" .
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.suffix }}
           path: json_Gatchanko_Tool-${{ matrix.suffix }}.zip
-
-  release-existing-tag:
-    name: Release Existing Tag (v1.1.0)
-    needs: build
-    runs-on: ubuntu-latest
-
-    # YAML push で実行（コミットメッセージに [release] を入れる）
-    if: contains(github.event.head_commit.message, '[release]') || github.event_name == 'workflow_dispatch'
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-
-      - name: Rename artifacts
-        run: |
-          mkdir renamed
-          for f in $(find artifacts -name "*.zip"); do
-            base=$(basename "$f")
-            cp "$f" "renamed/$base"
-          done
-
-      - name: Create Release for existing tag
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.1.0
-          files: renamed/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
